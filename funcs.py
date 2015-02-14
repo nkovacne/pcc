@@ -9,14 +9,14 @@ def send_mail(to_addr, banned, countries, host = 'localhost', port = 25):
   smtp = SMTP()
   smtp.connect(host, port)
   from_addr = "pcc@" + hostname
-  paises = []
+  countrylist = []
 
-  for pais in countries:
-    paises.append(pais.pais)
+  for country in countries:
+    countrylist.append(country.country)
 
-  subj = "Baneado usuario %s por sospecha de cuenta robada" % banned
+  subj = "User %s has been banned due to suspicion of compromised account" % banned
 
-  message_text = "El usuario %s ha sido baneado en %s por sospecha de cuenta robada\n\nRelacion de paises localizados: %s\n" % (banned, hostname, paises)
+  message_text = "User %s has been banned on %s due to suspicion of compromised account\n\nList of countries: %s\n" % (banned, hostname, countrylist)
 
   msg = "From: %s\nTo: %s\nSubject: %s\n\n%s" % (from_addr, to_addr, subj, message_text)
 
