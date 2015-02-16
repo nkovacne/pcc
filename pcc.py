@@ -41,14 +41,20 @@ class PCCAbstract(object):
         config = ConfigParser.ConfigParser()
         config.read(configpath)
 
-        self.dbcon = config.get('db', 'dbcon')
-        self.domains = config.get('mail', 'domains').split()
-        self.num_countries = int(config.get('policy', 'how_many_different_countries'))
-        self.days = int(config.get('policy', 'in_how_much_time_in_days'))
-        self.ignorecountries = config.get('policy', 'ignorecountries').split()
-        self.whitelisted = config.get('policy', 'whitelisted').split()
-        self.reason = config.get('policy', 'reason')
-        self.mailnotice = config.get('policy', 'notice').split()
+        try:
+            self.dbcon = config.get('db', 'dbcon')
+            self.domains = config.get('mail', 'domains').split()
+            self.mailnotice = config.get('mail', 'notice')
+            self.mailsrv = config.get('mail', 'mailsrv')
+            self.mailport = config.get('mail', 'mailport')
+            self.num_countries = int(config.get('policy', 'how_many_different_countries'))
+            self.days = int(config.get('policy', 'in_how_much_time_in_days'))
+            self.ignorecountries = config.get('policy', 'ignorecountries').split()
+            self.whitelisted = config.get('policy', 'whitelisted').split()
+            self.reason = config.get('policy', 'reason')
+        except ConfigParser.NoOptionError, e:
+            print "ERROR: %s" % (e)
+            sys.exit(4)
 
         if self.reason:
             self.REJECTCMD += " %s" % self.reason
@@ -109,7 +115,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             ses.add(blocked_uname)
             ses.commit()
 
-            funcs.send_mail(to_addr=",".join(self.mailnotice), banned=params['sasl_username'], countries=countries)
+            funcs.send_mail(to_addr=",".join(self.mailnotice), banned=params['sasl_username'], countries=countries, host=self.mailsrv, port=self.mailport)
             log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sasl_username'], self.days))
 
             return self.REJECTCMD
@@ -181,6 +187,19 @@ class PCC(PCCAbstract):
                log.info("Unblocking user '%s' on demand" % user);
                print "Unblock: Username %s has been unblocked" % (user)
 
+    def list_banned(self):
+        ses = self.session()
+        blocked = ses.query(Blocked).all()
+
+        if (not blocked):
+            print "There are no blocked users at this time"
+        else:
+            print " "
+            for user in blocked:
+                print "Blocked: %s" % (user.username)
+            print " "
+            print "Total blocked: %d" % (len(blocked))
+
 def run_server():
     """
       Function that invokes the daemon version
@@ -202,9 +221,12 @@ def parseopts(options):
 
     if options.daemon:
         run_server()
-    elif options.unban:
+    elif options.unblock:
         pcc = PCC()
-        pcc.unban(options.unban)
+        pcc.unban(options.unblock)
+    elif options.list_blocked:
+        pcc = PCC()
+        pcc.list_banned()
     else:
         if options.verbose:
             log.setLevel(logging.DEBUG)
@@ -226,6 +248,7 @@ if __name__ == "__main__":
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode. Debugging lines are written to mail log.", default=False)
     parser.add_option("-d", "--daemon", dest="daemon", action="store_true", help="Daemon mode", default=False)
     parser.add_option("-u", "--unblock", dest="unblock", help="Unblock an user", default=False)
+    parser.add_option("-l", "--list-blocked", dest="list_blocked", action="store_true", help="List all blocked users", default=False)
     options, args = parser.parse_args()
 
     parseopts(options)
