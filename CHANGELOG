@@ -1,10 +1,16 @@
+1.2
+===
+
+- New parameter 'action' in the 'policy' section to specify what to do with blocked e-mails. It allows two possible values: REJECT or HOLD.
+- Comments and documentation improved.
+
 1.1
 ===
 
 - New flag -l for listing currently blocked users
 - Changed location of parameter 'notice' from section 'policy' to 'mail'
 - Added two parameters to section 'mail': 'mailsrv' and 'mailport' to configure the parameters of the SMTP server whereby notifications to admins will be sent
-- Enhaced example pcc.conf file (more examples to the 'dbcon' parameter)
+- Enhanced example pcc.conf file (more examples to the 'dbcon' parameter)
 - Fix to test whether all config parameters have been defined (all of them are mandatory)
 
 1.0

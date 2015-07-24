@@ -29,12 +29,11 @@ class PCCAbstract(object):
     """
       This class is the global definition of the PCC script.
       It will read the configuration file (/etc/pcc.conf) and
-      run the server listening on the specified port.
+      make the server run and listen on the specified port.
     """
 
     # Postfix commands
     OKCMD = "DUNNO"
-    REJECTCMD = "REJECT"
 
     def load_config(self):
         # Configuration loading
@@ -52,14 +51,15 @@ class PCCAbstract(object):
             self.ignorecountries = config.get('policy', 'ignorecountries').split()
             self.whitelisted = config.get('policy', 'whitelisted').split()
             self.reason = config.get('policy', 'reason')
+            self.STOPCMD = config.get('policy', 'action')
         except ConfigParser.NoOptionError, e:
             print "ERROR: %s" % (e)
             sys.exit(4)
 
         if self.reason:
-            self.REJECTCMD += " %s" % self.reason
+            self.STOPCMD += " %s" % self.reason
 
-        # Establishing connection with the database
+        # Establishment of the connection with the database
         try:
             connection = create_engine(self.dbcon, pool_size=10)
         except Exception, e:
@@ -86,7 +86,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
     """
 
     def process_country(self, params):
-        # If the user is whitelisted, we have nothing left to do
+        # If the user is whitelisted, there's nothing left to do
         if params['sasl_username'] in self.whitelisted:
             log.info("Username %s is whitelisted, skipping checks" % (params['sasl_username']))
             return self.OKCMD
@@ -95,10 +95,10 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         ses = self.session()
         is_blocked = ses.query(Blocked).filter(Blocked.username == params['sasl_username'])
         if is_blocked.count():
-            log.info("Username %s was already blocked, rejecting delivery" % (params['sasl_username']))
-            return self.REJECTCMD
+            log.info("Username %s was already blocked, issuing %s on delivery" % (params['sasl_username'], self.STOPCMD.partition(' ')[0]))
+            return self.STOPCMD
 
-        # Now we'll count how many different countries has sent this username e-mails from within the last self.days
+        # Now we count how many different countries has this username sent e-mails from within the last self.days
         ses = self.session()
         countries = ses.query(Delivery).filter(Delivery.sender == params['sasl_username']).\
                     filter(and_(Delivery.valid == 1, Delivery.when > datetime.now() - timedelta(days=self.days)))
@@ -115,15 +115,16 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             ses.add(blocked_uname)
             ses.commit()
 
+            # Notification e-mail to admins
             funcs.send_mail(to_addr=",".join(self.mailnotice), banned=params['sasl_username'], countries=countries, host=self.mailsrv, port=self.mailport)
             log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sasl_username'], self.days))
 
-            return self.REJECTCMD
+            return self.STOPCMD
         else:
             # If everything is ok, we just log the user's outgoing e-mail parameters
             match = geolite2.lookup(params['client_address'])
 
-            # We'll make the DB insertion only if the country is not amongst configured ignored countries
+            # We only make the DB insertion if the country is not amongst currently configured ignored countries
             if (match) and (not match.country in self.ignorecountries):
                 log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
                 delivery = Delivery(sender=params['sasl_username'], destination=params['recipient'], country=match.country)
@@ -131,7 +132,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
                 ses.add(delivery)
                 ses.commit()
             else:
-                log.debug("Sending e-mail from an ignored country, skipping")
+                log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
 
             return self.OKCMD
 
@@ -149,12 +150,16 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
 
         # We're just interested in outgoing e-mails listed in the self.domains parameter
         dom = params['sender'].split('@')
-        if dom[1] in self.domains:
-            result = self.process_country(params)
-            log.debug("Returning policy: %s" % result)
-            self.request.sendall("action=%s\n\n" % result)
-        else:
-            log.debug("Domain %s is not listed in config, skipping" % dom[1])
+        try:
+            if dom[1] in self.domains:
+                result = self.process_country(params)
+                log.debug("Returning policy: %s" % result)
+                self.request.sendall("action=%s\n\n" % result)
+            else:
+                log.debug("Domain %s is not listed in config, skipping" % dom[1])
+                self.request.sendall("action=%s\n\n" % self.OKCMD)
+        except IndexError:
+            log.debug("Empty sender, skipping")
             self.request.sendall("action=%s\n\n" % self.OKCMD)
 
         log.debug("---------------------------")
@@ -247,7 +252,7 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode. Debugging lines are written to mail log.", default=False)
     parser.add_option("-d", "--daemon", dest="daemon", action="store_true", help="Daemon mode", default=False)
-    parser.add_option("-u", "--unblock", dest="unblock", help="Unblock an user", default=False)
+    parser.add_option("-u", "--unblock", dest="unblock", help="Unblock a user", default=False)
     parser.add_option("-l", "--list-blocked", dest="list_blocked", action="store_true", help="List all blocked users", default=False)
     options, args = parser.parse_args()
 
