@@ -101,7 +101,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         # Now we count how many different countries has this username sent e-mails from within the last self.days
         ses = self.session()
         countries = ses.query(Delivery).filter(Delivery.sender == params['sasl_username']).\
-                    filter(and_(Delivery.valid == 1, Delivery.when > datetime.now() - timedelta(days=self.days)))
+                    filter(and_(Delivery.valid == True, Delivery.when > datetime.now() - timedelta(days=self.days)))
 
         # Removing ignored countries
         for ignc in self.ignorecountries:
@@ -125,15 +125,16 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             match = geolite2.lookup(params['client_address'])
 
             # We only make the DB insertion if the country is not amongst currently configured ignored countries
-            if (match) and (not match.country in self.ignorecountries):
-                log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
-                delivery = Delivery(sender=params['sasl_username'], destination=params['recipient'], country=match.country)
-                ses = self.session()
-                ses.add(delivery)
-                ses.commit()
-            else:
-                log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
-
+            if match:
+                if not match.country in self.ignorecountries:
+                    log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
+                    delivery = Delivery(sender=params['sasl_username'], destination=params['recipient'], country=match.country)
+                    ses = self.session()
+                    ses.add(delivery)
+                    ses.commit()
+                else:
+                    log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
+    
             return self.OKCMD
 
     # Once we receive parameters via TCP, we'll have to process them
