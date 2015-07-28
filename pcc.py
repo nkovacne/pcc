@@ -188,7 +188,7 @@ class PCC(PCCAbstract):
             ses = self.session()
             invalidate = ses.query(Delivery).filter(Delivery.when > datetime.now() - timedelta(days=self.days))
             for row in invalidate:
-               row.valid = 0
+               row.valid = False
                ses.commit()
                log.info("Unblocking user '%s' on demand" % user);
                print "Unblock: Username %s has been unblocked" % (user)

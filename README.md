@@ -25,7 +25,7 @@ Postfix Country Control
 **Configuration**:
 
   * pip install -r requisites.txt
-  * pip install <your_database_backend>
+  * pip install [your_database_backend]
   * Create a database and a user and grant SELECT, INSERT, UPDATE and CREATE TABLE permissions at least.
   * Copy the pcc.conf file into your /etc directory. Make sure it has reading permissions for the user running the daemon.
   * Edit your settings and adjust them to your environment. ALL parameters are mandatory. If you don't need some of them, just leave them blank (parameter =)
