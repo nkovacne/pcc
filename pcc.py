@@ -100,7 +100,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
 
         # Now we count how many different countries has this username sent e-mails from within the last self.days
         ses = self.session()
-        countries = ses.query(Delivery).filter(Delivery.sender == params['sasl_username']).\
+        countries = ses.query(Delivery).distinct(Delivery.country).filter(Delivery.sender == params['sasl_username']).\
                     filter(and_(Delivery.valid == True, Delivery.when > datetime.now() - timedelta(days=self.days)))
 
         # Removing ignored countries
@@ -116,7 +116,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             ses.commit()
 
             # Notification e-mail to admins
-            funcs.send_mail(to_addr=",".join(self.mailnotice), banned=params['sasl_username'], countries=countries, host=self.mailsrv, port=self.mailport)
+            funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), banned=params['sasl_username'], countries=countries, host=self.mailsrv, port=self.mailport)
             log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sasl_username'], self.days))
 
             return self.STOPCMD
