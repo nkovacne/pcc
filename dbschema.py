@@ -14,7 +14,7 @@ delivery_table = Table('delivery', metadata,
     Column('sender', String(length=100), nullable=False),
     Column('destination', String(length=100), nullable=False),
     Column('country', String(length=2), nullable=False),
-    Column('valid', Boolean, nullable=False, default=1)
+    Column('valid', Boolean, nullable=False, default=True)
 )
 
 # Schema of the blocked table
