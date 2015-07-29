@@ -180,7 +180,6 @@ class PCC(PCCAbstract):
 
         if not blocked.count():
             print "ERROR: Username %s is not currently blocked" % (user)
-            return False
         else:
             for item in blocked:
                 ses = self.session()
@@ -194,7 +193,6 @@ class PCC(PCCAbstract):
                ses.commit()
                log.info("Unblocking user '%s' on demand" % user);
                print "Unblock: Username %s has been unblocked" % (user)
-               return True
 
     def list_banned(self):
         ses = self.session()
@@ -235,18 +233,18 @@ def parseopts(options):
         pcc.unban(options.unblock.split('@')[0])
     elif options.unblockrelease:
         pcc = PCC()
-        blocked = pcc.unban(options.unblockrelease.split('@')[0])
-        if blocked:
-            held_mails = mailq(sender=options.unblockrelease)
-            release_mail(held_mails)
-            print "%d e-mails have been released from HOLD"
+        pcc.unban(options.unblockrelease.split('@')[0])
+
+        held_mails = mailq(sender=options.unblockrelease)
+        release_mail(held_mails)
+        print "%d e-mails have been released from HOLD" % (len(held_mails))
     elif options.unblockdelete:
         pcc = PCC()
-        blocked = pcc.unban(options.unblockdelete.split('@')[0])
-        if blocked:
-            held_mails = mailq(sender=options.unblockdelete)
-            release_mail(held_mails)
-            print "%d e-mails have been deleted from HOLD"
+        pcc.unban(options.unblockdelete.split('@')[0])
+
+        held_mails = mailq(sender=options.unblockdelete)
+        release_mail(held_mails)
+        print "%d e-mails have been deleted from HOLD" % (len(held_mails))
     elif options.list_blocked:
         pcc = PCC()
         pcc.list_banned()
