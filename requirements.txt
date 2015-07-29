@@ -2,3 +2,4 @@ SQLAlchemy
 python-geoip
 python-geoip-geolite2
 ConfigParser
+netaddr

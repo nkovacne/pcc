@@ -13,6 +13,7 @@ from dbschema import Delivery, Blocked, metadata
 from geoip import geolite2
 from optparse import OptionParser
 from postfix import mailq, release_mail, remove_mail
+from netaddr import IPNetwork, IPAddress
 import os.path
 from logging.handlers import SysLogHandler
 
@@ -51,6 +52,7 @@ class PCCAbstract(object):
             self.days = int(config.get('policy', 'in_how_much_time_in_days'))
             self.ignorecountries = config.get('policy', 'ignorecountries').split()
             self.whitelisted = config.get('policy', 'whitelisted').split()
+            self.whitelistedips = config.get('policy', 'whitelistedips').split()
             self.reason = config.get('policy', 'reason')
             self.STOPCMD = config.get('policy', 'action')
         except ConfigParser.NoOptionError, e:
@@ -98,6 +100,16 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         if is_blocked.count():
             log.info("Username %s was already blocked, issuing %s on delivery" % (params['sasl_username'], self.STOPCMD.partition(' ')[0]))
             return self.STOPCMD
+
+        # Check whether the client IP address is amongst the ignored IP addresses or CIDR ranges
+        for wip in self.whitelistedips:
+            # It is a CIDR range
+            if '/' in wip and IPAddress(params['client_address']) in IPNetwork(wip):
+                log.debug("Client IP address %s is contained in whitelist CIDR range %s, skipping" % (params['client_address'], wip))
+                return self.OKCMD
+            elif wip == params['client_address']:
+                log.debug("Client IP address %s is contained in whitelist list, skipping" % (params['client_address']))
+                return self.OKCMD
 
         # Now we count how many different countries has this username sent e-mails from within the last self.days
         ses = self.session()

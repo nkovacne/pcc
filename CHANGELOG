@@ -1,3 +1,8 @@
+1.4
+===
+
+- New parameter 'whitelistedips' in the 'policy' section to specify IPs or CIDR ranges of clients to whitelist, so they're never processed.
+
 1.3
 ===
 
