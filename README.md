@@ -10,7 +10,7 @@ Postfix Country Control
 
 **Version**:
 
-  * 1.2
+  * 1.3
 
 **Requisites**:
 
@@ -55,3 +55,7 @@ smtpd_recipient_restrictions =
 
   * Finally, you just have to run your PCC daemon, supervisord is recomended (pcc.py -d).
   * You can see the available options running: pcc.py -h
+
+**Known issues**:
+
+  * Currently blocked users are stored in a 'username' fashion-like way (i.e., no associated domain). This may be problematic if the admin is handling more than one domain and two users with the same username but different domain are blocked and they want to unblock just one of them.

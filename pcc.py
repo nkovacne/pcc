@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from dbschema import Delivery, Blocked, metadata
 from geoip import geolite2
 from optparse import OptionParser
+from postfix import mailq, release_mail, remove_mail
 import os.path
 from logging.handlers import SysLogHandler
 
@@ -179,6 +180,7 @@ class PCC(PCCAbstract):
 
         if not blocked.count():
             print "ERROR: Username %s is not currently blocked" % (user)
+            return False
         else:
             for item in blocked:
                 ses = self.session()
@@ -192,6 +194,7 @@ class PCC(PCCAbstract):
                ses.commit()
                log.info("Unblocking user '%s' on demand" % user);
                print "Unblock: Username %s has been unblocked" % (user)
+               return True
 
     def list_banned(self):
         ses = self.session()
@@ -229,7 +232,21 @@ def parseopts(options):
         run_server()
     elif options.unblock:
         pcc = PCC()
-        pcc.unban(options.unblock)
+        pcc.unban(options.unblock.split('@')[0])
+    elif options.unblockrelease:
+        pcc = PCC()
+        blocked = pcc.unban(options.unblockrelease.split('@')[0])
+        if blocked:
+            held_mails = mailq(sender=options.unblockrelease)
+            release_mail(held_mails)
+            print "%d e-mails have been released from HOLD"
+    elif options.unblockdelete:
+        pcc = PCC()
+        blocked = pcc.unban(options.unblockdelete.split('@')[0])
+        if blocked:
+            held_mails = mailq(sender=options.unblockdelete)
+            release_mail(held_mails)
+            print "%d e-mails have been deleted from HOLD"
     elif options.list_blocked:
         pcc = PCC()
         pcc.list_banned()
@@ -253,7 +270,9 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode. Debugging lines are written to mail log.", default=False)
     parser.add_option("-d", "--daemon", dest="daemon", action="store_true", help="Daemon mode", default=False)
-    parser.add_option("-u", "--unblock", dest="unblock", help="Unblock a user", default=False)
+    parser.add_option("-u", "--unblock", dest="unblock", help="Simply unblock a user (and do nothing with their held emails)", default=False)
+    parser.add_option("-r", "--unblockrelease", dest="unblockrelease", help="Unblock a user and release their mails from HOLD", default=False)
+    parser.add_option("-e", "--unblockdelete", dest="unblockdelete", help="Unblock a user and delete their mails from HOLD", default=False)
     parser.add_option("-l", "--list-blocked", dest="list_blocked", action="store_true", help="List all blocked users", default=False)
     options, args = parser.parse_args()
 
