@@ -207,6 +207,14 @@ class PCC(PCCAbstract):
             print " "
             print "Total blocked: %d" % (len(blocked))
 
+    def cleanup(self, days):
+        ses = self.session()
+        todel = ses.query(Delivery).filter(Delivery.when < datetime.now() - timedelta(days=int(days)))
+        total = todel.count()
+        todel.delete()
+        ses.commit()
+        print "%d entries have been deleted from database" % (total)
+
 def run_server():
     """
       Function that invokes the daemon version
@@ -245,6 +253,9 @@ def parseopts(options):
         held_mails = mailq(sender=options.unblockdelete)
         release_mail(held_mails)
         print "%d e-mails have been deleted from HOLD" % (len(held_mails))
+    elif options.cleanup:
+        pcc = PCC()
+        pcc.cleanup(options.cleanup)
     elif options.list_blocked:
         pcc = PCC()
         pcc.list_banned()
@@ -268,10 +279,11 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="Verbose mode. Debugging lines are written to mail log.", default=False)
     parser.add_option("-d", "--daemon", dest="daemon", action="store_true", help="Daemon mode", default=False)
+    parser.add_option("-l", "--list-blocked", dest="list_blocked", action="store_true", help="List all blocked users", default=False)
     parser.add_option("-u", "--unblock", dest="unblock", help="Simply unblock a user (and do nothing with their held emails)", default=False)
     parser.add_option("-r", "--unblockrelease", dest="unblockrelease", help="Unblock a user and release their mails from HOLD", default=False)
     parser.add_option("-e", "--unblockdelete", dest="unblockdelete", help="Unblock a user and delete their mails from HOLD", default=False)
-    parser.add_option("-l", "--list-blocked", dest="list_blocked", action="store_true", help="List all blocked users", default=False)
+    parser.add_option("-c", "--cleanup", dest="cleanup", help="Cleanup delivery entries older than days specified by parameter", default=False)
     options, args = parser.parse_args()
 
     parseopts(options)

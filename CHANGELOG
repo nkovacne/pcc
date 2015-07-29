@@ -3,6 +3,7 @@
 
 - Several funcional fixes
 - Now a blocked user can be unblocked and their held mail be released (-ur) or deleted (-ud). This is only useful if the 'action' parameter is HOLD.
+- New option -c: Cleanup of old database entries
 
 1.2
 ===

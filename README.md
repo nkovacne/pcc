@@ -59,3 +59,4 @@ smtpd_recipient_restrictions =
 **Known issues**:
 
   * Currently blocked users are stored in a 'username' fashion-like way (i.e., no associated domain). This may be problematic if the admin is handling more than one domain and two users with the same username but different domain are blocked and they want to unblock just one of them.
+  * An additional parameter to the configuration file should be implemented to allow exclusion of IP ranges from being processed
