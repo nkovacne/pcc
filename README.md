@@ -58,5 +58,4 @@ smtpd_recipient_restrictions =
 
 **Known issues**:
 
-  * Currently blocked users are stored in a 'username' fashion-like way (i.e., no associated domain). This may be problematic if the admin is handling more than one domain and two users with the same username but different domain are blocked and they want to unblock just one of them.
   * Sometimes, stopping the script via supervisorctl won't close it cleanly, resulting in a still open socket on the port until it timesout.
