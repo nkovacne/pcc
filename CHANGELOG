@@ -1,3 +1,8 @@
+1.4.1
+=====
+
+- Fix: Some organizations don't use the e-mail address as the user login itself. We'll use the 'sender' param instead of 'sasl_username' as the user "object" (logging, blocking, etc.). For that being used, we'll check if there's a sasl_username parameter to avoid logging non-relayed attempts.
+
 1.4
 ===
 

@@ -89,16 +89,22 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
     """
 
     def process_country(self, params):
+        # If there's no sasl_username parameter, that's probably a non-relayed attempt to send mail through the mail server
+        # We won't even bother processing it, as the MTA itself will probably block the attempt
+        if not params['sasl_username']:
+            log.info("Not sasl_username specified, probably a non-relayed attempt, skipping")
+            return self.OKCMD
+
         # If the user is whitelisted, there's nothing left to do
-        if params['sasl_username'] in self.whitelisted:
-            log.info("Username %s is whitelisted, skipping checks" % (params['sasl_username']))
+        if params['sender'] in self.whitelisted:
+            log.info("Username %s is whitelisted, skipping checks" % (params['sender']))
             return self.OKCMD
 
         # Check whether the user is already blocked
         ses = self.session()
-        is_blocked = ses.query(Blocked).filter(Blocked.username == params['sasl_username'])
+        is_blocked = ses.query(Blocked).filter(Blocked.username == params['sender'])
         if is_blocked.count():
-            log.info("Username %s was already blocked, issuing %s on delivery" % (params['sasl_username'], self.STOPCMD.partition(' ')[0]))
+            log.info("Username %s was already blocked, issuing %s on delivery" % (params['sender'], self.STOPCMD.partition(' ')[0]))
             return self.STOPCMD
 
         # Check whether the client IP address is amongst the ignored IP addresses or CIDR ranges
@@ -113,7 +119,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
 
         # Now we count how many different countries has this username sent e-mails from within the last self.days
         ses = self.session()
-        countries = ses.query(Delivery).distinct(Delivery.country).filter(Delivery.sender == params['sasl_username']).\
+        countries = ses.query(Delivery).distinct(Delivery.country).filter(Delivery.sender == params['sender']).\
                     filter(and_(Delivery.valid == True, Delivery.when > datetime.now() - timedelta(days=self.days)))
 
         # Removing ignored countries
@@ -123,14 +129,14 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         # If the treshold has been reached or exceeded...
         if countries.count() >= self.num_countries:
             # Block the username
-            blocked_uname = Blocked(username=params['sasl_username'])
+            blocked_uname = Blocked(username=params['sender'])
             ses = self.session()
             ses.add(blocked_uname)
             ses.commit()
 
             # Notification e-mail to admins
-            funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), banned=params['sasl_username'], countries=countries, host=self.mailsrv, port=self.mailport)
-            log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sasl_username'], self.days))
+            funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), banned=params['sender'], countries=countries, host=self.mailsrv, port=self.mailport)
+            log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sender'], countries.count(), self.days))
 
             return self.STOPCMD
         else:
@@ -140,13 +146,13 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             # We only make the DB insertion if the country is not amongst currently configured ignored countries
             if match:
                 if not match.country in self.ignorecountries:
-                    log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
-                    delivery = Delivery(sender=params['sasl_username'], destination=params['recipient'], country=match.country)
+                    log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sender'], params['recipient'], match.country, params['client_address']))
+                    delivery = Delivery(sender=params['sender'], destination=params['recipient'], country=match.country)
                     ses = self.session()
                     ses.add(delivery)
                     ses.commit()
                 else:
-                    log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sasl_username'], params['recipient'], match.country, params['client_address']))
+                    log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sender'], params['recipient'], match.country, params['client_address']))
     
             return self.OKCMD
 
