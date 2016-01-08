@@ -275,7 +275,6 @@ def parseopts(options):
 
         held_mails = mailq(sender=options.unblockdelete)
         release_mail(held_mails)
-        funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), host=self.mailsrv, port=self.mailport, user=user, deleted=len(held_mails))
         funcs.notify_unban(to_addr=pcc.mailnotice.replace(' ', ','), host=pcc.mailsrv, port=pcc.mailport, user=options.unblockdelete, deleted=len(held_mails), unbanned=unbanned)
         print "%d e-mails have been deleted from HOLD" % (len(held_mails))
     elif options.cleanup:
