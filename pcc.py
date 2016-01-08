@@ -138,6 +138,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), banned=params['sender'], countries=countries, host=self.mailsrv, port=self.mailport)
             log.info("Blocking username %s due to compromised account suspicion (%d deliveries in %d days)" % (params['sender'], countries.count(), self.days))
 
+            ses.close()
             return self.STOPCMD
         else:
             # If everything is ok, we just log the user's outgoing e-mail parameters
@@ -153,7 +154,8 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
                     ses.commit()
                 else:
                     log.debug("Outgoing e-mail %s -> %s: Sending from an ignored country (C: %s, IP: %s), skipping" % (params['sender'], params['recipient'], match.country, params['client_address']))
-    
+            
+            ses.close()
             return self.OKCMD
 
     # Once we receive parameters via TCP, we'll have to process them
@@ -200,17 +202,16 @@ class PCC(PCCAbstract):
             print "ERROR: Username %s is not currently blocked" % (user)
         else:
             for item in blocked:
-                ses = self.session()
                 ses.delete(item)
                 ses.commit()
              
-            ses = self.session()
             invalidate = ses.query(Delivery).filter(Delivery.when > datetime.now() - timedelta(days=self.days))
             for row in invalidate:
                row.valid = False
                ses.commit()
-               log.info("Unblocking user '%s' on demand" % user);
-               print "Unblock: Username %s has been unblocked" % (user)
+
+            log.info("Unblocking user '%s' on demand" % user);
+            print "Unblock: Username %s has been unblocked" % (user)
 
     def list_banned(self):
         ses = self.session()
@@ -256,17 +257,17 @@ def parseopts(options):
         run_server()
     elif options.unblock:
         pcc = PCC()
-        pcc.unban(options.unblock.split('@')[0])
+        pcc.unban(options.unblock)
     elif options.unblockrelease:
         pcc = PCC()
-        pcc.unban(options.unblockrelease.split('@')[0])
+        pcc.unban(options.unblockrelease)
 
         held_mails = mailq(sender=options.unblockrelease)
         release_mail(held_mails)
         print "%d e-mails have been released from HOLD" % (len(held_mails))
     elif options.unblockdelete:
         pcc = PCC()
-        pcc.unban(options.unblockdelete.split('@')[0])
+        pcc.unban(options.unblockdelete)
 
         held_mails = mailq(sender=options.unblockdelete)
         release_mail(held_mails)

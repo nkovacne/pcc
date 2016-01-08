@@ -1,3 +1,9 @@
+1.4.2
+=====
+
+- Explicitly closing DB session when not needed anymore.
+- Some fixes in the unban method.
+
 1.4.1
 =====
 

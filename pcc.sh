@@ -1,7 +1,7 @@
 #!/bin/bash
 
-pcc=/opt/pcc/pcc.py
-virtualenv=/opt/venv
+pcc=/opt/ccti/pcc/pcc.py
+virtualenv=/opt/venv-pcc
 
 cd $(dirname $0)
 test -e $virtualenv && VIRTUALENV=$virtualenv
