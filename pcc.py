@@ -200,6 +200,7 @@ class PCC(PCCAbstract):
 
         if not blocked.count():
             print "ERROR: Username %s is not currently blocked" % (user)
+            return False
         else:
             for item in blocked:
                 ses.delete(item)
@@ -212,6 +213,7 @@ class PCC(PCCAbstract):
 
             log.info("Unblocking user '%s' on demand" % user);
             print "Unblock: Username %s has been unblocked" % (user)
+            return True
 
     def list_banned(self):
         ses = self.session()
@@ -257,20 +259,24 @@ def parseopts(options):
         run_server()
     elif options.unblock:
         pcc = PCC()
-        pcc.unban(options.unblock)
+        unbanned = pcc.unban(options.unblock)
+        funcs.notify_unban(to_addr=pcc.mailnotice.replace(' ', ','), host=pcc.mailsrv, port=pcc.mailport, user=options.unblock, unbanned=unbanned)
     elif options.unblockrelease:
         pcc = PCC()
-        pcc.unban(options.unblockrelease)
+        unbanned = pcc.unban(options.unblockrelease)
 
         held_mails = mailq(sender=options.unblockrelease)
         release_mail(held_mails)
+        funcs.notify_unban(to_addr=pcc.mailnotice.replace(' ', ','), host=pcc.mailsrv, port=pcc.mailport, user=options.unblockrelease, released=len(held_mails), unbanned=unbanned)
         print "%d e-mails have been released from HOLD" % (len(held_mails))
     elif options.unblockdelete:
         pcc = PCC()
-        pcc.unban(options.unblockdelete)
+        unbanned = pcc.unban(options.unblockdelete)
 
         held_mails = mailq(sender=options.unblockdelete)
         release_mail(held_mails)
+        funcs.send_mail(to_addr=self.mailnotice.replace(' ', ','), host=self.mailsrv, port=self.mailport, user=user, deleted=len(held_mails))
+        funcs.notify_unban(to_addr=pcc.mailnotice.replace(' ', ','), host=pcc.mailsrv, port=pcc.mailport, user=options.unblockdelete, deleted=len(held_mails), unbanned=unbanned)
         print "%d e-mails have been deleted from HOLD" % (len(held_mails))
     elif options.cleanup:
         pcc = PCC()

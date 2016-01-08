@@ -10,7 +10,7 @@ Postfix Country Control
 
 **Version**:
 
-  * 1.4.2
+  * 1.5
 
 **Requisites**:
 
