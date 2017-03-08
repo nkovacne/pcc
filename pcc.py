@@ -64,7 +64,7 @@ class PCCAbstract(object):
 
         # Establishment of the connection with the database
         try:
-            connection = create_engine(self.dbcon, pool_size=10)
+            connection = create_engine(self.dbcon, pool_size=25, max_overflow=25, pool_recycle=1750)
         except Exception, e:
             print "Error while attempting to connect to the database (%s): %s'" % (self.dbcon, e)
             sys.exit(3)
