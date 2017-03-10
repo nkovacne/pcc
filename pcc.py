@@ -64,7 +64,7 @@ class PCCAbstract(object):
 
         # Establishment of the connection with the database
         try:
-            connection = create_engine(self.dbcon, pool_size=25, max_overflow=25, pool_recycle=1750)
+            connection = create_engine(self.dbcon, pool_size=10, max_overflow=25, pool_recycle=1750)
         except Exception, e:
             print "Error while attempting to connect to the database (%s): %s'" % (self.dbcon, e)
             sys.exit(3)
@@ -105,6 +105,7 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         is_blocked = ses.query(Blocked).filter(Blocked.username == params['sender'])
         if is_blocked.count():
             log.info("Username %s was already blocked, issuing %s on delivery" % (params['sender'], self.STOPCMD.partition(' ')[0]))
+            ses.close()
             return self.STOPCMD
 
         # Check whether the client IP address is amongst the ignored IP addresses or CIDR ranges
@@ -112,13 +113,14 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
             # It is a CIDR range
             if '/' in wip and IPAddress(params['client_address']) in IPNetwork(wip):
                 log.debug("Client IP address %s is contained in whitelist CIDR range %s, skipping" % (params['client_address'], wip))
+                ses.close()
                 return self.OKCMD
             elif wip == params['client_address']:
                 log.debug("Client IP address %s is contained in whitelist list, skipping" % (params['client_address']))
+                ses.close()
                 return self.OKCMD
 
         # Now we count how many different countries has this username sent e-mails from within the last self.days
-        ses = self.session()
         countries = ses.query(Delivery).distinct(Delivery.country).filter(Delivery.sender == params['sender']).\
                     filter(and_(Delivery.valid == True, Delivery.when > datetime.now() - timedelta(days=self.days)))
 
@@ -130,7 +132,6 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
         if countries.count() >= self.num_countries:
             # Block the username
             blocked_uname = Blocked(username=params['sender'])
-            ses = self.session()
             ses.add(blocked_uname)
             ses.commit()
 
@@ -149,7 +150,6 @@ class TCPHandler(PCCAbstract, SocketServer.BaseRequestHandler):
                 if not match.country in self.ignorecountries:
                     log.debug("Logged outgoing e-mail %s -> %s (C: %s, IP: %s)" % (params['sender'], params['recipient'], match.country, params['client_address']))
                     delivery = Delivery(sender=params['sender'], destination=params['recipient'], country=match.country)
-                    ses = self.session()
                     ses.add(delivery)
                     ses.commit()
                 else:
@@ -200,6 +200,7 @@ class PCC(PCCAbstract):
 
         if not blocked.count():
             print "ERROR: Username %s is not currently blocked" % (user)
+            ses = self.session()
             return False
         else:
             for item in blocked:
@@ -213,6 +214,7 @@ class PCC(PCCAbstract):
 
             log.info("Unblocking user '%s' on demand" % user);
             print "Unblock: Username %s has been unblocked" % (user)
+            ses.close()
             return True
 
     def list_banned(self):
@@ -227,6 +229,8 @@ class PCC(PCCAbstract):
                 print "Blocked: %s" % (user.username)
             print " "
             print "Total blocked: %d" % (len(blocked))
+        
+        ses.close()
 
     def cleanup(self, days):
         ses = self.session()
@@ -235,6 +239,7 @@ class PCC(PCCAbstract):
         todel.delete()
         ses.commit()
         print "%d entries have been deleted from database" % (total)
+        ses.close()
 
 def run_server():
     """
